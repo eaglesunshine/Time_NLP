@@ -122,7 +122,10 @@ class TimeNormalizer:
                 dic['timestamp'] = res[0].time.format("YYYY-MM-DD HH:mm:ss")
             else:
                 dic['type'] = 'timespan'
-                dic['timespan'] = [res[0].time.format("YYYY-MM-DD HH:mm:ss"), res[1].time.format("YYYY-MM-DD HH:mm:ss")]
+                dic['timespan'] = list()
+                for sub_res in res:
+                    dic['timespan'].append(sub_res.time.format("YYYY-MM-DD HH:mm:ss"))
+                # dic['timespan'] = [res[0].time.format("YYYY-MM-DD HH:mm:ss"), res[1].time.format("YYYY-MM-DD HH:mm:ss")]
         return json.dumps(dic)
 
     def __preHandling(self):
@@ -160,7 +163,7 @@ class TimeNormalizer:
         # 时间上下文： 前一个识别出来的时间会是下一个时间的上下文，用于处理：周六3点到5点这样的多个时间的识别，第二个5点应识别到是周六的。
         contextTp = TimePoint()
         print(self.timeBase)
-        print('temp',temp)
+        print('temp', temp)
         for i in range(0, rpointer):
             # 这里是一个类嵌套了一个类
             res.append(TimeUnit(temp[i], self, contextTp))
