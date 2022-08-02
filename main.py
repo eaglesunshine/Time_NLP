@@ -10,7 +10,7 @@ import logging
 from api import api
 from flask import Flask
 
-LOG_FILE_PATH = "/data/logs/nlp/http.log"
+LOG_FILE_PATH = "/data/log/flask.log"
 
 logging.basicConfig(level=logging.DEBUG)
 app = Flask(__name__)
