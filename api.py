@@ -6,19 +6,19 @@
 # 对外http接口
 
 import json
-import sys
+import os
 
-from flask import Blueprint
+from TimeNormalizer import TimeNormalizer
+from flask import Blueprint, redirect
 from flask import current_app
 from flask import make_response
 from flask import request
-from TimeNormalizer import TimeNormalizer
-
 
 api = Blueprint('nlp_api', __name__)
 
 # 创建实例
 client = TimeNormalizer()
+
 
 def response(resp_data, message: str = "", code: int = 200):
     """
@@ -36,12 +36,13 @@ def response(resp_data, message: str = "", code: int = 200):
 
     return resp
 
-@api.route("/", methods=['POST'])
+
+@api.route("/nlp", methods=['POST'])
 def nlp():
     """
     请求格式：
     {
-        "content": "method_name"    //待解析字符串
+        "content": "xxx"    //待解析字符串
     }
 
     返回格式：
@@ -68,7 +69,7 @@ def nlp():
             return response(None, "content is empty", 200)
 
         # Time_NLP执行解析
-        resp_data = client.parse(target=content) 
+        resp_data = client.parse(target=content)
         current_app.logger.info('resp_data：{}'.format(str(resp_data)))
 
         return response(resp_data=resp_data)
@@ -78,10 +79,34 @@ def nlp():
         return response(None, "service error, {}".format(str(err)), 200)
 
 
-@api.route("/", methods=['GET'])
+@api.route("/test", methods=['GET'])
 def test():
+    """
+    测试nlp
+    """
     content = u'测试：今年儿童节晚上九点一刻'
     current_app.logger.info('resp_data：{}'.format(str(content)))
     resp_data = client.parse(target=content)
     current_app.logger.info('resp_data：{}'.format(str(resp_data)))
     return response(resp_data=resp_data)
+
+
+@api.route("/remind/login", methods=['GET', 'POST'])
+def index():
+    """
+    前端第一次登录需要重定向跳转，来获取用户信息
+    """
+    redirect_uri = "http://www.alarmclock.com.cn/login"
+
+    # 获取SuiteID
+    suite_id = os.getenv('SuiteID', '')
+
+    # 跳转链接
+    login_url = "https://open.weixin.qq.com/connect/oauth2/authorize?appid={suite_id}&redirect_uri={redirect_uri}&" \
+                "response_type=code&scope=snsapi_userinfo&state=STATE#wechat_redirect"
+    login_url = login_url.format(
+        suite_id=suite_id,
+        redirect_uri=redirect_uri
+    )
+
+    return redirect(login_url)

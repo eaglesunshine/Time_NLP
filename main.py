@@ -9,17 +9,19 @@ import logging
 
 from api import api
 from flask import Flask
+from flask_cors import CORS
 
-LOG_FILE_PATH = "/data/log/flask.log"
+LOG_FILE_PATH = "flask.log"
 
-logging.basicConfig(level=logging.DEBUG)
 app = Flask(__name__)
+CORS(app, supports_credentials=True)  # 设置跨域
 
 # 注册蓝图
 app.register_blueprint(api)
 
 if __name__ == "__main__":
     # 设置日志
+    logging.basicConfig(level=logging.DEBUG)
     handler = logging.FileHandler(LOG_FILE_PATH, encoding='UTF-8')
     logging_format = logging.Formatter(
         '%(asctime)s - %(levelname)s - %(filename)s - %(funcName)s - %(lineno)s - %(message)s')
