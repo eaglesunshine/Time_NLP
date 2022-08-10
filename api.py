@@ -96,7 +96,7 @@ def index():
     """
     前端第一次登录需要重定向跳转，来获取用户信息
     """
-    redirect_uri = "http://www.alarmclock.com.cn/login"
+    redirect_uri = "http://www.alarmclock.com.cn/home"
 
     # 获取SuiteID
     suite_id = os.getenv('SuiteID', '')
