@@ -95,7 +95,7 @@ def test():
 
 
 @api.route("/relay/login", methods=['GET'])
-def index():
+def login():
     """
     前端第一次登录需要重定向跳转，来获取用户信息
     """
@@ -158,24 +158,79 @@ def userinfo():
     current_app.logger.info('req_param：{}'.format(str(req_param)))
     current_app.logger.info('user_info：{}'.format(user_info))
 
-    if res_info.get('errcode') !=0:
+    if user_info.get('errcode') !=0:
         return make_response('Internal Server Error', 500)
 
     # 解析user id
     user_id = user_info.get('UserId','')
     corp_id = user_info.get('CorpId','')
 
-    # 完整的用户信息可以缓存起来，可能后续有用，信息包括了：CorpId、UserId、DeviceId、user_ticket、open_userid
+    # 完整的用户信息可以缓存起来，可能后续有用，信息包括：CorpId、UserId、DeviceId、user_ticket、open_userid
     key = "{}-userinfo".format(user_id)
     alive = int(user_info.get('expires_in', 1800))
 
     r = RedisClient()
     r.setex(name=key, time=alive, value=json.dumps(user_info))
-    current_app.logger.info('save userinfo in redis, userid={}, alive:{}'.format(user_id, str(alive)))
+    current_app.logger.info('save user_info in redis, user_id={}, alive:{}'.format(user_id, str(alive)))
 
     # 跳转至web端
-    redirect_url = "http://www.alarmclock.com.cn/remind/home?user_id={}&corp_id={}".format(user_id, corp_id)
+    redirect_url = "http://www.alarmclock.com.cn/#/home?user_id={}&corp_id={}".format(user_id, corp_id)
 
     current_app.logger.info('redirect_url：{}'.format(redirect_url))
 
     return redirect(redirect_url)
+
+@api.route("/relay/api", methods=['POST'])
+def do_api():
+    """
+    转发所有api请求
+    """
+
+    """
+    请求格式：
+    {
+        "uri": "xxx",
+        "method: "get/post",
+        "param": {
+            "xxx": xxx
+        }   
+    }
+
+    返回格式：
+    {
+        "output": xxx,              //调用方法返回的内容
+        "message": "success or err_info"
+    }
+    """
+
+    try:
+
+        # 解析请求数据
+        try:
+            data = request.get_data()
+            req_data = json.loads(data)
+            current_app.logger.info('req_data：{}'.format(str(req_data)))
+        except Exception as err:  # pylint: disable=broad-except
+            current_app.logger.error('err_info：{}'.format(str(err)))
+            return response(None, "request data parse failed", 200)
+
+        # 组合URL
+        uri = req_data.get('uri', '')
+        url = "http://127.0.0.1:8000/api/" + uri
+        current_app.logger.error('request api url：{}'.format(url))
+
+        # 发起请求
+        if req_data.get('method') == "post":
+            res = requests.post(url=url, data=req_data.get('param', {}), timeout=60)
+        else:
+            res = requests.get(url=url, timeout=60)
+
+        resp_data = res.json()
+        current_app.logger.error('response：{}'.format(resp_data))
+
+        return response(resp_data=resp_data)
+
+    except Exception as err:  # pylint: disable=broad-except
+        current_app.logger.error('err_info：{}'.format(str(err)))
+        return response(None, "service error, {}".format(str(err)), 200)
+    
