@@ -6,18 +6,18 @@
 
 import json
 
-from redis import StrictRedis
+import redis
 
 
 class RedisClient:
     def __init__(self):
-        self.redis_conn = StrictRedis(host="127.0.0.1", port=6379, db=0, password="")
+        self.redis_conn = redis.Redis(host="127.0.0.1", port=6379, db=0, password="")
 
     def set(self, k, v):
         return self.redis_conn.set(k, json.dumps(v))
 
     def setex(self, name, time, value):
-        return self.redis_conn.setex(name, time, value)
+        return self.redis_conn.setex(name, value, time)
 
     def get(self, k):
         val = self.redis_conn.get(k)

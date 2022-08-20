@@ -2,3 +2,5 @@ regex
 arrow==0.14.0
 Flask==2.0.3
 flask-cors==3.0.10
+redis==2.10.6
+redis-py-cluster==2.0.0

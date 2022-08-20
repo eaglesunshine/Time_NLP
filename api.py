@@ -7,12 +7,15 @@
 
 import json
 import os
+import requests
 
 from TimeNormalizer import TimeNormalizer
 from flask import Blueprint, redirect
 from flask import current_app
 from flask import make_response
 from flask import request
+
+from my_redis import RedisClient
 
 api = Blueprint('nlp_api', __name__)
 
@@ -91,15 +94,19 @@ def test():
     return response(resp_data=resp_data)
 
 
-@api.route("/remind/login", methods=['GET', 'POST'])
+@api.route("/relay/login", methods=['GET'])
 def index():
     """
     前端第一次登录需要重定向跳转，来获取用户信息
     """
-    redirect_uri = "http://www.alarmclock.com.cn/home"
+    redirect_uri = "http://www.alarmclock.com.cn/relay/user"
 
     # 获取SuiteID
     suite_id = os.getenv('SuiteID', '')
+    current_app.logger.info('SuiteID：{}'.format(suite_id))
+
+    if not suite_id:
+        return make_response('Internal Server Error', 500)
 
     # 跳转链接
     login_url = "https://open.weixin.qq.com/connect/oauth2/authorize?appid={suite_id}&redirect_uri={redirect_uri}&" \
@@ -109,4 +116,66 @@ def index():
         redirect_uri=redirect_uri
     )
 
+    current_app.logger.info('login_url：{}'.format(login_url))
+
     return redirect(login_url)
+
+@api.route("/relay/user", methods=['GET'])
+def userinfo():
+    """
+    解析用户信息
+    """
+
+    # 获取code
+    code = request.args.get('code')
+    current_app.logger.info('code：{}'.format(code))
+
+    if not code:
+        return make_response("Bad Request", 400)
+
+    # 获取suite_access_token
+    url="http://127.0.0.1:8000/api/suite_access_token"
+    res = requests.get(url=url, timeout=60)
+    res_info = res.json()
+
+    current_app.logger.info('urle：{}'.format(url))
+    current_app.logger.info('res：{}'.format(str(res)))
+    current_app.logger.info('res_info：{}'.format(res_info))
+
+    suite_access_token=res_info.get('suite_access_token', '')
+
+    # 获取访问用户信息
+    req_param = {
+        "code": code,
+        "suite_access_token": suite_access_token,
+    }
+
+    url="https://qyapi.weixin.qq.com/cgi-bin/service/getuserinfo3rd"
+    res = requests.post(url=url, data=req_param, timeout=60)
+    user_info = res.json()
+
+    current_app.logger.info('url：{}'.format(url))
+    current_app.logger.info('req_param：{}'.format(str(req_param)))
+    current_app.logger.info('user_info：{}'.format(user_info))
+
+    if res_info.get('errcode') !=0:
+        return make_response('Internal Server Error', 500)
+
+    # 解析user id
+    user_id = user_info.get('UserId','')
+    corp_id = user_info.get('CorpId','')
+
+    # 完整的用户信息可以缓存起来，可能后续有用，信息包括了：CorpId、UserId、DeviceId、user_ticket、open_userid
+    key = "{}-userinfo".format(user_id)
+    alive = int(user_info.get('expires_in', 1800))
+
+    r = RedisClient()
+    r.setex(name=key, time=alive, value=json.dumps(user_info))
+    current_app.logger.info('save userinfo in redis, userid={}, alive:{}'.format(user_id, str(alive)))
+
+    # 跳转至web端
+    redirect_url = "http://www.alarmclock.com.cn/remind/home?user_id={}&corp_id={}".format(user_id, corp_id)
+
+    current_app.logger.info('redirect_url：{}'.format(redirect_url))
+
+    return redirect(redirect_url)
